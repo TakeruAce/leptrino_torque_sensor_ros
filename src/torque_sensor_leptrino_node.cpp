@@ -76,8 +76,6 @@ void calibrate(const std_msgs::BoolConstPtr& msg) {
 		} else {
 			for(int i=0;i<6;i++) {
 				calib_error[i] = stForce->ssForce[i] / (calib_count+1) + calib_count*calib_error[i] / (calib_count+1);
-				cout << (std::to_string(calib_error[0])) << endl;
-				cout <<  stForce->ssForce[0] << endl;
 			}
 			calib_count++;
 		}
