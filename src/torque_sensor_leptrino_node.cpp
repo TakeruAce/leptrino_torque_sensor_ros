@@ -4,6 +4,7 @@
 #include <realtime_tools/realtime_publisher.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Bool.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <tf/tf.h>
 #include <geometry_msgs/WrenchStamped.h>
@@ -42,8 +43,14 @@ geometry_msgs::WrenchStamped raw_wrench_msgs_;
 geometry_msgs::WrenchStamped past_raw_wrench_msgs_;
 
 float cutoff_coef = 0;
-float sensor_offset[6] = {26.92,-4.92,-2.72,0,0,0};
+float sensor_offset[6] = {0,0,0,0,0,0};
 int offset_count = 0;
+
+bool start_calib_flag = false;
+float calib_count=0;
+float calib_error[6] = {0,0,0,0,0,0};
+ST_R_DATA_GET_F *stForce;
+float Limit[6];
 
 void OmegaCallback(const std_msgs::Float64ConstPtr& msg)
 {
@@ -59,6 +66,31 @@ void OffsetCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
 	sensor_offset[5] = msg->data[5];
 }
 
+void calibrate(const std_msgs::BoolConstPtr& msg) {
+	if (msg->data) {
+		if (!start_calib_flag) {
+			ROS_INFO("start force sensor calibration...");
+			start_calib_flag = true;
+			for(int i=0;i<6;i++) calib_error[i]=0;
+			calib_count = 0;
+		} else {
+			for(int i=0;i<6;i++) {
+				calib_error[i] = stForce->ssForce[i] / (calib_count+1) + calib_count*calib_error[i] / (calib_count+1);
+				cout << (std::to_string(calib_error[0])) << endl;
+				cout <<  stForce->ssForce[0] << endl;
+			}
+			calib_count++;
+		}
+	} else {
+		if (start_calib_flag) {
+			ROS_INFO("calibration finished.");
+			start_calib_flag = false;
+		}
+	}
+}
+
+
+
 int main(int argc, char **argv)
 {
   cout << "torque sensor data collector start" << endl;
@@ -69,6 +101,7 @@ int main(int argc, char **argv)
 
   ros::Subscriber sub_omega = n.subscribe("leptrino/cutoffcoef", 1, &OmegaCallback);
   ros::Subscriber sub_offset = n.subscribe("leptrino/offset", 1, &OffsetCallback);
+  ros::Subscriber sub_calibrate = n.subscribe("leptrino/calibrate", 1, &calibrate);
 
   ros::Rate loop_rate(500);
   ros::Time time;
@@ -78,10 +111,8 @@ int main(int argc, char **argv)
 	int mode_step = 0;
 	int AdFlg = 0, EndF = 0;
 	long cnt = 0;
-  	float Limit[6];
 	UCHAR strprm[256];
 	ST_RES_HEAD *stCmdHead;
-	ST_R_DATA_GET_F *stForce;
 	ST_R_GET_INF *stGetInfo;
   	ST_R_LEP_GET_LIMIT *stGetLimit;
 
@@ -111,12 +142,12 @@ int main(int argc, char **argv)
 				stForce = (ST_R_DATA_GET_F *)CommRcvBuff;
 			}
 			if (raw_wrench_pub_->trylock()) {
-				raw_wrench_msgs_.wrench.force.x = (( Limit[0] / 10000.0 * (stForce->ssForce[0])) - sensor_offset[0]) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.force.x;
-				raw_wrench_msgs_.wrench.force.y = (( Limit[1] / 10000.0 * (stForce->ssForce[1])) - sensor_offset[1]) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.force.y;
-				raw_wrench_msgs_.wrench.force.z = ((-Limit[2] / 10000.0 * (stForce->ssForce[2])) - sensor_offset[2]) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.force.z;
-				raw_wrench_msgs_.wrench.torque.x = (( Limit[3] / 10000.0 * (stForce->ssForce[3])) - sensor_offset[3]) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.torque.x;
-				raw_wrench_msgs_.wrench.torque.y = (( Limit[4] / 10000.0 * (stForce->ssForce[4])) - sensor_offset[4]) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.torque.y;
-				raw_wrench_msgs_.wrench.torque.z = ((-Limit[5] / 10000.0 * (stForce->ssForce[5])) - sensor_offset[5]) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.torque.z;
+				raw_wrench_msgs_.wrench.force.x = (( Limit[0] / 10000.0 * (stForce->ssForce[0]-calib_error[0]))) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.force.x;
+				raw_wrench_msgs_.wrench.force.y = (( Limit[1] / 10000.0 * (stForce->ssForce[1]-calib_error[1]))) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.force.y;
+				raw_wrench_msgs_.wrench.force.z = ((-Limit[2] / 10000.0 * (stForce->ssForce[2]-calib_error[2]))) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.force.z;
+				raw_wrench_msgs_.wrench.torque.x = (( Limit[3] / 10000.0 * (stForce->ssForce[3]-calib_error[3]))) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.torque.x;
+				raw_wrench_msgs_.wrench.torque.y = (( Limit[4] / 10000.0 * (stForce->ssForce[4]-calib_error[4]))) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.torque.y;
+				raw_wrench_msgs_.wrench.torque.z = ((-Limit[5] / 10000.0 * (stForce->ssForce[5]-calib_error[5]))) * (1-cutoff_coef) + cutoff_coef * past_raw_wrench_msgs_.wrench.torque.z;
 				raw_wrench_msgs_.header.stamp = ros::Time::now();
 				raw_wrench_pub_->msg_ = raw_wrench_msgs_;
 				raw_wrench_pub_->unlockAndPublish();
