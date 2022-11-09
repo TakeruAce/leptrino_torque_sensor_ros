@@ -19,7 +19,7 @@ typedef struct ST_SystemInfo {
 	int com_ok;
 } SystemInfo;
 
-void App_Init(void);
+void App_Init(std::string port_name);
 void App_Close(void);
 int GetRcv_to_Cmd( char *rcv, char *prm);
 ULONG SendData(UCHAR *pucInput, USHORT usSize);
@@ -37,7 +37,6 @@ UCHAR CommSendBuff[1024];
 UCHAR SendBuff[512];
 
 using namespace std;
-
 
 geometry_msgs::WrenchStamped raw_wrench_msgs_;
 geometry_msgs::WrenchStamped past_raw_wrench_msgs_;
@@ -116,7 +115,13 @@ int main(int argc, char **argv)
 
 	ros::Time offsetStartTime;
 
-	App_Init();
+	std::string port_name = ros::names::remap("port_name");
+	if (port_name == "port_name") {
+		ROS_ERROR("PLEASE DEFINE PORT FOR TORQUE SENSOR!");
+		return 0;
+	}
+
+	App_Init(port_name);
 	if (gSys.com_ok == NG) {
 		printf("ComPort Open Fail\n");
 		ROS_ERROR("COMPORT OPEN FAIL");
@@ -156,7 +161,6 @@ int main(int argc, char **argv)
 					ROS_INFO("[CAUTION] EXCEEDED FORCE/TORQUE APPLIED!!");
 				}
 			}
-
 		}
 
 		ros::spinOnce();
@@ -171,20 +175,19 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-
 // ----------------------------------------------------------------------------------
 //	アプリケーション初期化
 // ----------------------------------------------------------------------------------
 //	引数	: non
 //	戻り値	: non
 // ----------------------------------------------------------------------------------
-void App_Init(void)
+void App_Init(std::string port_name)
 {
 	int rt;
 	
 	//Commポート初期化
 	gSys.com_ok = NG;
-	rt = Comm_Open("/dev/ttyS3");
+	rt = Comm_Open(port_name.c_str());
 	if ( rt==OK ) {
 		Comm_Setup( 460800, PAR_NON, BIT_LEN_8, 0, 0, CHR_ETX);
 		gSys.com_ok = OK;

@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/ariake/xarm_dev/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/ariake/xarm_dev/src/xarm_sample_motion/follow_movement/include/**",
+        "/home/ariake/xarm_dev/src/xarm_sample_motion/force_based_movement/include/**",
+        "/home/ariake/xarm_dev/src/xarm_sample_motion/pose_sampling/include/**",
+        "/home/ariake/xarm_dev/src/torque_sensor_leptrino/include/**",
+        "/home/ariake/xarm_dev/src/xarm_ros/xarm_api/include/**",
+        "/home/ariake/xarm_dev/src/xarm_ros/xarm_controller/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
