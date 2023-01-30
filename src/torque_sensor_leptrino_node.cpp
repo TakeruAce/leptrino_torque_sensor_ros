@@ -93,6 +93,7 @@ int main(int argc, char **argv)
   cout << "torque sensor data collector start" << endl;
   ros::init(argc, argv, "torque_sensor_leptrino");
   ros::NodeHandle n;
+  ros::NodeHandle pn("~");
   std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::WrenchStamped>> raw_wrench_pub_;
   raw_wrench_pub_.reset(new realtime_tools::RealtimePublisher<geometry_msgs::WrenchStamped>(n, "raw_wrench", 60));
 
@@ -116,6 +117,7 @@ int main(int argc, char **argv)
 	ros::Time offsetStartTime;
 
 	std::string port_name = ros::names::remap("port_name");
+	if (port_name == "port_name") pn.getParam("port_name",port_name);
 	if (port_name == "port_name") {
 		ROS_ERROR("PLEASE DEFINE PORT FOR TORQUE SENSOR!");
 		return 0;
